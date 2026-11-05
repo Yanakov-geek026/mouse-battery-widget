@@ -1,0 +1,5 @@
+_dev/
+widget_pos.json
+HIDUsb.dll
+__pycache__/
+*.pyc

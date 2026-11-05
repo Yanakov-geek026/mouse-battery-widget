@@ -1,0 +1,12 @@
+Иконки в этой папке
+====================
+
+mouse.svg, keyboard.svg — иконки из набора "Tabler Icons"
+https://tabler.io/icons  ·  https://github.com/tabler/tabler-icons
+
+Лицензия: MIT (см. LICENSE-tabler.txt).
+Файлы иконок скачаны как есть; при отрисовке виджета задаются только цвет
+и толщина штриха.
+
+Отрисовываются встроенным мини-рендерером SVG внутри mouse_battery_widget.py,
+сторонние библиотеки для этого не нужны.
