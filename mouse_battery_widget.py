@@ -3,8 +3,8 @@
 """
 Виджет заряда беспроводной мыши ARDOR GAMING "Phantom PRO v2" (2.4G Wireless).
 
-Дизайн: тёмная карточка с кольцом прогресса, иконкой мыши и процентом заряда
-(как в макете). Карточка обтянута вокруг содержимого — пустых полей нет.
+Дизайн: компактная тёмная плашка — слева кольцо прогресса с иконкой мыши,
+справа процент заряда. Несколько устройств выводятся строками друг под другом.
 Показывается поверх всех окон, перетаскивается мышью, по правому клику — меню.
 Размер меняется перетаскиванием правого нижнего уголка, Ctrl+колесом или
 через меню (60–300%), и запоминается.
@@ -663,23 +663,21 @@ def fitted_image(name, height_px, color):
 # ===========================================================================
 
 # --- геометрия в логических пикселях (96 dpi) ---
-# Карточка обтягивает содержимое: кольцо почти касается боковых краёв,
-# процент стоит вплотную под кольцом. Пустых полей по краям нет.
-RING_D = 104.0         # диаметр кольца
-RING_W = 10.0          # толщина кольца
-CELL_W = 104.0         # ширина «ячейки» одного устройства (= RING_D)
-PAD_X = 13.0           # отступ по бокам
-PAD_TOP = 13.0         # отступ сверху
-GAP = 11.0             # от кольца до цифры (снизу отступ PAD_BOT — примерно столько же)
-TEXT_CAP = 24.0        # высота цифр (font 34 px, Segoe UI Semibold)
-PAD_BOT = 13.0         # отступ снизу
-CARD_R = 18.0          # радиус скругления карточки
-SHADOW_PAD = 18.0      # поле вокруг карточки под тень
-SHADOW_DY = 3.0
-SHADOW_BLUR = 8.0
-ICON_BOX = 0.620       # размер иконки как доля RING_D
+# Компактная горизонтальная плашка: слева кольцо с иконкой устройства,
+# справа — процент. Несколько устройств выводятся строками друг под другом.
+RING_D = 34.0          # диаметр кольца
+RING_W = 4.0           # толщина кольца
+PAD_X = 10.0           # отступ по бокам
+PAD_Y = 8.0            # отступ сверху и снизу
+GAP = 8.0              # от кольца до цифры
+ROW_GAP = 12.0         # промежуток между строками устройств
+FONT_PX = 21           # размер цифры процента (Segoe UI Semibold)
+CARD_R = 12.0          # радиус скругления карточки
+SHADOW_PAD = 12.0      # поле вокруг карточки под тень
+SHADOW_DY = 2.0
+SHADOW_BLUR = 6.0
+ICON_BOX = 0.58        # размер иконки как доля RING_D
 ICON_STROKE_UNITS = 1.20
-FONT_PX = 34
 
 # --- размеры окна ---
 USER_SCALE_MIN = 0.60
@@ -728,8 +726,24 @@ def level_color(level):
     return C_RED
 
 
+_PCT_SIZE = None
+
+
+def _pct_text_size():
+    """Ширина/высота строки «100%» в логических пикселях (кэшируется)."""
+    global _PCT_SIZE
+    if _PCT_SIZE is None:
+        font = _font(FONT_PX * 4)           # меряем крупно — точнее
+        probe = Image.new("RGBA", (8, 8))
+        bb = ImageDraw.Draw(probe).textbbox((0, 0), "100%", font=font)
+        _PCT_SIZE = ((bb[2] - bb[0]) / 4.0, (bb[3] - bb[1]) / 4.0)
+    return _PCT_SIZE
+
+
 def card_size(n):
-    return (PAD_X * 2 + CELL_W * n, PAD_TOP + RING_D + GAP + TEXT_CAP + PAD_BOT)
+    tw, _th = _pct_text_size()
+    return (PAD_X * 2 + RING_D + GAP + tw,
+            PAD_Y * 2 + RING_D * n + ROW_GAP * (n - 1))
 
 
 def widget_size_px(n, scale):
@@ -768,10 +782,10 @@ def _ring(img, cx, cy, r, w, color, a0, a1):
 
 def _bolt(img, cx, cy, ring_d, ring_r, S):
     """Значок молнии (зарядка) — поверх верхушки кольца, как на макете."""
-    h = 0.150 * ring_d * S
+    h = 0.24 * ring_d * S
     bolt = fitted_image("bolt.svg", h, C_WHITE)
-    bx = int(round(cx - 0.100 * ring_d * S - bolt.width / 2.0))
-    by = int(round((cy - ring_r) - 0.050 * ring_d * S))
+    bx = int(round(cx - 0.10 * ring_d * S - bolt.width / 2.0))
+    by = int(round((cy - ring_r) - 0.06 * ring_d * S))
     img.alpha_composite(bolt, (bx, by))
 
 
@@ -825,8 +839,8 @@ def render_widget(states, scale=1.0, ss=3, grip=False):
 
     font = _font(int(round(FONT_PX * S)))
     for i, st in enumerate(states):
-        cx = ox + (PAD_X + CELL_W * (i + 0.5)) * S
-        cy = oy + (PAD_TOP + RING_D / 2.0) * S
+        cx = ox + (PAD_X + RING_D / 2.0) * S
+        cy = oy + (PAD_Y + RING_D / 2.0 + i * (RING_D + ROW_GAP)) * S
         r_out = RING_D / 2.0 * S
         rw = RING_W * S
         level = st.get("level")
@@ -835,7 +849,7 @@ def render_widget(states, scale=1.0, ss=3, grip=False):
         if level:
             _ring(img, cx, cy, r_out, rw, level_color(level), 0, 360.0 * level / 100.0)
 
-        # иконка
+        # иконка внутри кольца
         ibox = RING_D * ICON_BOX * S
         icon_col = C_WHITE if level is not None else (255, 254, 255, 110)
         icon = icon_image(st.get("icon", "mouse.svg"), ibox, icon_col)
@@ -847,10 +861,11 @@ def render_widget(states, scale=1.0, ss=3, grip=False):
             _bolt(img, cx, cy, RING_D, r_out, S)
             d = ImageDraw.Draw(img)
 
-        # процент
+        # процент — справа от кольца, по вертикали по центру строки
         txt = "--%" if level is None else "%d%%" % level
-        base_y = oy + (PAD_TOP + RING_D + GAP + TEXT_CAP) * S
-        d.text((cx, base_y), txt, font=font, fill=C_WHITE, anchor="ms")
+        tx = ox + (PAD_X + RING_D + GAP) * S
+        fill = C_WHITE if level is not None else (255, 254, 255, 130)
+        d.text((tx, cy), txt, font=font, fill=fill, anchor="lm")
 
     # уголок для изменения размера (только когда курсор над ним)
     if grip:
